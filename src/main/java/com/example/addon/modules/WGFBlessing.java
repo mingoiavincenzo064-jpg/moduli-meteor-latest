@@ -22,7 +22,7 @@ public class WGFBlessing extends Module {
    private final Setting<Integer> maxPackets;
 
    public WGFBlessing() {
-      super(WGFAddon.CATEGORY, "WGF-Blessing", "Grants the blessing of the gods.");
+      super(AddonTemplate.CATEGORY, "WGF-Blessing", "Grants the blessing of the gods.");
       this.sgGeneral = this.settings.getDefaultGroup();
       this.packetAmount = this.sgGeneral.add(((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("packets-per-tick")).min(2).max(200).sliderMin(2).sliderMax(200).defaultValue(140)).build());
       this.maxPackets = this.sgGeneral.add(((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("max-packets")).sliderMin(1000).sliderMax(100000).defaultValue(40000)).build());
