@@ -9,7 +9,7 @@ import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
  
 // --- Import aggiornati per 26.1.2 (Mojang mappings, la 1.21.4 usava Yarn) ---
-import net.minecraft.world.entity.animal.Sheep;   // prima: net.minecraft.entity.passive.SheepEntity
+import net.minecraft.world.entity.animal.sheep.Sheep;   // prima: net.minecraft.entity.passive.SheepEntity
 import net.minecraft.world.phys.AABB;             // prima: net.minecraft.util.math.Box
  
 public class SheepEsp extends Module {
