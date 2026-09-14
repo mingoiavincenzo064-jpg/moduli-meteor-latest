@@ -1,5 +1,5 @@
 package com.example.addon.modules;
-
+ 
 import com.example.addon.AddonTemplate;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
@@ -7,84 +7,99 @@ import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.entity.passive.SheepEntity;
-import net.minecraft.util.math.Box;
  
-/**
- * Modulo ESP per le pecore.
- * Evidenzia tutte le SheepEntity nel mondo, anche attraverso i muri.
- *
- * NOTA: i nomi esatti delle classi/metodi di Meteor Client (Categories,
- * ShapeMode, firma di event.renderer.box(...), ecc.) possono cambiare
- * leggermente tra le varie build/versioni. Se compilando trovi errori,
- * controlla la versione dei sorgenti di Meteor Client che stai usando
- * come dipendenza e adegua gli import/firme di conseguenza.
- */
-public class SheepESP extends Module {
+// --- Import aggiornati per 26.1.2 (Mojang mappings, la 1.21.4 usava Yarn) ---
+import net.minecraft.world.entity.animal.Sheep;   // prima: net.minecraft.entity.passive.SheepEntity
+import net.minecraft.world.phys.AABB;             // prima: net.minecraft.util.math.Box
  
+public class SheepEsp extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
  
-    // Modalità di disegno: solo contorno, solo riempimento, entrambi
     private final Setting<ShapeMode> shapeMode = sgGeneral.add(new EnumSetting.Builder<ShapeMode>()
         .name("shape-mode")
-        .description("Come vengono disegnate le forme.")
+        .description("Come disegnare l'ESP.")
         .defaultValue(ShapeMode.Both)
         .build()
     );
  
-    // Colore di riempimento del box
-    private final Setting<SettingColor> fillColor = sgGeneral.add(new ColorSetting.Builder()
+    private final Setting<SettingColor> sideColor = sgGeneral.add(new ColorSetting.Builder()
         .name("colore-riempimento")
-        .description("Colore di riempimento del box attorno alla pecora.")
-        .defaultValue(new SettingColor(255, 255, 255, 60))
+        .description("Colore del riempimento del box.")
+        .defaultValue(new SettingColor(255, 255, 255, 50))
         .build()
     );
  
-    // Colore del contorno
     private final Setting<SettingColor> lineColor = sgGeneral.add(new ColorSetting.Builder()
-        .name("colore-contorno")
-        .description("Colore del contorno del box.")
+        .name("colore-bordo")
+        .description("Colore del bordo del box.")
         .defaultValue(new SettingColor(255, 255, 255, 255))
         .build()
     );
  
-    // Quanto espandere il box attorno all'entità (utile per renderlo più visibile)
-    private final Setting<Double> boxExpand = sgGeneral.add(new DoubleSetting.Builder()
-        .name("espansione-box")
-        .description("Espande leggermente il box di rendering.")
-        .defaultValue(0.0)
-        .min(0)
-        .sliderMax(0.5)
+    private final Setting<Boolean> onlyColoredSheep = sgGeneral.add(new BoolSetting.Builder()
+        .name("solo-pecore-colorate")
+        .description("Evidenzia solo pecore con lana colorata (non bianche).")
+        .defaultValue(false)
         .build()
     );
  
-    public SheepESP() {
-        // Sostituisci "Categories.Render" con la categoria del tuo addon
-        // (es. TuoAddon.CATEGORY) se ne hai definita una personalizzata.
-        super(meteordevelopment.meteorclient.systems.modules.Categories.Render,
-            "sheep-esp",
-            "Evidenzia le pecore attraverso i muri.");
+    private final Setting<Double> countRadius = sgGeneral.add(new DoubleSetting.Builder()
+        .name("raggio-conteggio")
+        .description("Raggio entro cui contare le pecore rilevate (mostrato accanto al nome del modulo).")
+        .defaultValue(16.0)
+        .min(1.0).max(128.0)
+        .build()
+    );
+ 
+    private int sheepCount = 0;
+ 
+    public SheepEsp() {
+        super(AddonTemplate.CATEGORY, "sheep-esp", "Evidenzia le pecore attraverso i muri.");
     }
  
     @EventHandler
     private void onRender3D(Render3DEvent event) {
-        if (mc.world == null) return;
+        if (mc.level == null || mc.player == null) return; // prima: mc.world == null
  
-        for (SheepEntity sheep : mc.world.getEntitiesByClass(
-                SheepEntity.class,
-                mc.world.getWorldBorder().asBox(),
-                entity -> true
-        )) {
-            Box box = sheep.getBoundingBox().expand(boxExpand.get());
+        int count = 0;
+        double radiusSq = countRadius.get() * countRadius.get();
+ 
+        // entitiesForRendering() = tutte le entità caricate lato client (anche dietro i muri).
+        // Prima usavi mc.world.getEntities(), che su 26.1.2 non è garantito allo stesso modo:
+        // questo è il metodo corretto e più affidabile per un ESP.
+        for (var entity : mc.level.entitiesForRendering()) {
+            if (!(entity instanceof Sheep sheep)) continue;
+            if (onlyColoredSheep.get() && sheep.getColor().getId() == 15) continue; // 15 = bianco/default
+ 
+            // prima: mc.player.squaredDistanceTo(sheep)
+            if (mc.player.distanceToSqr(sheep) <= radiusSq) {
+                count++;
+            }
+ 
+            AABB box = sheep.getBoundingBox();
+ 
+            // Interpolazione posizione tra i tick.
+            // prima: sheep.prevX / prevY / prevZ -> ora: sheep.xo / yo / zo
+            double x = sheep.xo + (sheep.getX() - sheep.xo) * event.tickDelta;
+            double y = sheep.yo + (sheep.getY() - sheep.yo) * event.tickDelta;
+            double z = sheep.zo + (sheep.getZ() - sheep.zo) * event.tickDelta;
+ 
+            // prima: box.offset(...) -> ora: AABB.move(...)
+            AABB renderBox = box.move(x - sheep.getX(), y - sheep.getY(), z - sheep.getZ());
  
             event.renderer.box(
-                box,
-                fillColor.get(),
-                lineColor.get(),
-                shapeMode.get(),
-                0
+                renderBox,
+                sideColor.get(), lineColor.get(),
+                shapeMode.get(), 0
             );
         }
+ 
+        sheepCount = count;
+    }
+ 
+    @Override
+    public String getInfoString() {
+        return String.valueOf(sheepCount);
     }
 }
  
