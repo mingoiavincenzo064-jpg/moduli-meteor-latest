@@ -13,13 +13,10 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.sheep.Sheep;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-// ⚠️ CLASSE NON TROVATA IN COMPILAZIONE: nella tua build 26.1.2 "net.minecraft.world.inventory.ClickType"
-// non risulta più qui. Cancella questa riga, poi nel punto dove usi "ClickType.PICKUP" più sotto
-// usa l'auto-import del tuo IDE (Alt+Invio in IntelliJ) per farti trovare il pacchetto corretto:
-// l'IDE ha già i sorgenti mappati reali della tua versione, io da remoto non riesco a confermarlo.
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.EntityHitResult;
 
 public class AutoSheepFarm extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -363,7 +360,8 @@ public class AutoSheepFarm extends Module {
 
         equipShears();
 
-        mc.gameMode.interact(mc.player, target, InteractionHand.MAIN_HAND);
+        // Dalla fusione di interact()/interactAt(): ora serve sempre un EntityHitResult.
+        mc.gameMode.interact(mc.player, target, new EntityHitResult(target), InteractionHand.MAIN_HAND);
         mc.player.swing(InteractionHand.MAIN_HAND);
 
         delayTicks = actionDelay.get();
@@ -481,7 +479,7 @@ public class AutoSheepFarm extends Module {
             return;
         }
 
-        AbstractContainerMenu menu = screen.getMenu();
+        AbstractContainerMenu menu = mc.player.containerMenu;
         String needle = woolName.get().toLowerCase();
 
         for (int i = 0; i < containerSize.get(); i++) {
@@ -503,18 +501,18 @@ public class AutoSheepFarm extends Module {
             return;
         }
 
-        mc.gameMode.handleInventoryMouseClick(menu.containerId, nextPageSlot.get(), 0, ClickType.PICKUP, mc.player);
+        mc.gameMode.handleContainerInput(menu.containerId, nextPageSlot.get(), 0, ContainerInput.PICKUP, mc.player);
         delayTicks = actionDelay.get();
     }
 
     private void openSellMenu() {
-        if (!(mc.screen instanceof AbstractContainerScreen<?> screen) || foundWoolSlot < 0) {
+        if (!(mc.screen instanceof AbstractContainerScreen<?>) || foundWoolSlot < 0) {
             state = State.IDLE;
             return;
         }
 
-        AbstractContainerMenu menu = screen.getMenu();
-        mc.gameMode.handleInventoryMouseClick(menu.containerId, foundWoolSlot, 1, ClickType.PICKUP, mc.player);
+        AbstractContainerMenu menu = mc.player.containerMenu;
+        mc.gameMode.handleContainerInput(menu.containerId, foundWoolSlot, 1, ContainerInput.PICKUP, mc.player);
 
         delayTicks = actionDelay.get() * 2;
         waitRetries = 0;
@@ -541,8 +539,8 @@ public class AutoSheepFarm extends Module {
             return;
         }
 
-        AbstractContainerMenu menu = screen.getMenu();
-        mc.gameMode.handleInventoryMouseClick(menu.containerId, emeraldSlot.get(), 0, ClickType.PICKUP, mc.player);
+        AbstractContainerMenu menu = mc.player.containerMenu;
+        mc.gameMode.handleContainerInput(menu.containerId, emeraldSlot.get(), 0, ContainerInput.PICKUP, mc.player);
 
         delayTicks = actionDelay.get();
         state = State.CLOSE;
