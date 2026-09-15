@@ -5,6 +5,7 @@ import com.example.addon.hud.HudExample;
 import com.example.addon.modules.WGFBlessing;
 import com.example.addon.modules.SheepEsp;
 import com.example.addon.modules.AutoSheepFarm;
+import com.example.addon.modules.TpsGuard;
 import com.mojang.logging.LogUtils;
 import meteordevelopment.meteorclient.addons.GithubRepo;
 import meteordevelopment.meteorclient.addons.MeteorAddon;
@@ -28,6 +29,7 @@ public class AddonTemplate extends MeteorAddon {
         Modules.get().add(new WGFBlessing());
         Modules.get().add(new SheepEsp());
         Modules.get().add(new AutoSheepFarm());
+        Modules.get().add(new TpsGuard());
 
         // Commands
         Commands.add(new CommandExample());
