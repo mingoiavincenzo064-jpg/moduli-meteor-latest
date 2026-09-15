@@ -1,4 +1,4 @@
-package com.example.addon.modules; ; // <-- sostituisci con il package dei tuoi moduli
+package com.example.addon.modules; // <-- sostituisci con il package dei tuoi moduli
 
 import com.example.addon.AddonTemplate;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
