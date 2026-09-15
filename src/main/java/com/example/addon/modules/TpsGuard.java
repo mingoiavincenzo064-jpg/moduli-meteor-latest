@@ -1,11 +1,12 @@
-package com.example.addon.modules; // <-- sostituisci con il package dei tuoi moduli
+package com.example.addon.modules;
 
 import com.example.addon.AddonTemplate;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
+import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.*;
-import meteordevelopment.meteorclient.systems.modules.Category;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
+import com.example.addon.AddonTemplate; // <-- stesso import usato negli altri moduli del template
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket; // nome Mojang (era WorldTimeUpdateS2CPacket in Yarn)
 import net.minecraft.network.chat.Component; // nome Mojang per Text (verifica: in alcuni contesti puo' restare "Text")
 
@@ -27,8 +28,7 @@ import java.util.Deque;
 public class TpsGuard extends Module {
 
     public TpsGuard() {
-        // Sostituisci Category.MISC con la categoria del tuo addon, se ne hai una custom
-        super(Category.MISC, "tps-guard", "Disconnette se il TPS del server crolla (lag machine) o il server si blocca del tutto.");
+        super(AddonTemplate.CATEGORY, "tps-guard", "Disconnette se il TPS del server crolla (lag machine) o il server si blocca del tutto.");
     }
 
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -87,6 +87,17 @@ public class TpsGuard extends Module {
     }
 
     @EventHandler
+    private void onTick(TickEvent.Post event) {
+        // Controllo freeze totale: gira ad ogni tick del CLIENT, indipendentemente
+        // da cosa arriva dal server. Se il server si blocca del tutto e non manda
+        // piu' nessun pacchetto, e' questo il controllo che se ne accorge.
+        double secondsSinceAnyPacket = (System.currentTimeMillis() - lastAnyPacketMs) / 1000.0;
+        if (secondsSinceAnyPacket >= freezeTimeoutSeconds.get()) {
+            trigger(String.format("nessun pacchetto ricevuto da %.1f secondi (server bloccato)", secondsSinceAnyPacket));
+        }
+    }
+
+    @EventHandler
     private void onReceive(PacketEvent.Receive event) {
         long now = System.currentTimeMillis();
         lastAnyPacketMs = now; // qualsiasi pacchetto conta per il rilevamento freeze
@@ -96,13 +107,6 @@ public class TpsGuard extends Module {
         timePacketTimestamps.addLast(now);
         while (!timePacketTimestamps.isEmpty() && now - timePacketTimestamps.peekFirst() > windowMs.get()) {
             timePacketTimestamps.pollFirst();
-        }
-
-        // --- Controllo freeze totale (nessun pacchetto di alcun tipo) ---
-        double secondsSinceAnyPacket = (now - lastAnyPacketMs) / 1000.0;
-        if (secondsSinceAnyPacket >= freezeTimeoutSeconds.get()) {
-            trigger(String.format("nessun pacchetto ricevuto da %.1f secondi (server bloccato)", secondsSinceAnyPacket));
-            return;
         }
 
         if (timePacketTimestamps.size() < minSamples.get()) return; // troppo pochi campioni, aspetta
@@ -127,8 +131,8 @@ public class TpsGuard extends Module {
         // metodo di disconnessione potrebbe chiamarsi diversamente (es. disconnect() sulla
         // connessione di rete). Verifica questi due punti con l'autocomplete del tuo IDE
         // o guardando come lo fanno altri moduli gia' presenti nel tuo template 26.1.2.
-        if (mc.getNetworkHandler() != null) {
-            mc.getNetworkHandler().getConnection().disconnect(
+        if (mc.getConnection() != null) {
+            mc.getConnection().getConnection().disconnect(
                 Component.literal("Disconnesso da TpsGuard: " + detail)
             );
         }
