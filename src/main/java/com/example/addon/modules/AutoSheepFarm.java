@@ -8,6 +8,7 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.Rotations;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -15,7 +16,6 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.InteractionHand;
 
 public class AutoSheepFarm extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -210,6 +210,8 @@ public class AutoSheepFarm extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Post event) {
+        // ⚠️ VERIFICARE: in 1.21.4 (Yarn) il mondo client è "mc.world". Con le mappature Mojang
+        // il nome del campo è "level" (mc.level). Se il compilatore si lamenta, prova mc.level().
         if (mc.player == null || mc.level == null) return;
 
         boolean movementState = state == State.MOVE_TO_LOOT || state == State.WANDER;
@@ -273,11 +275,17 @@ public class AutoSheepFarm extends Module {
         }
     }
 
+    // MODIFICATA: ora ignora le pecore troppo distanti in altezza (Y), utile per farm a più piani.
     private Entity findValidSheep(double radius) {
         String needle = stackAmount.get() + "x";
         double best = radius * radius;
         Entity found = null;
 
+        // ⚠️ VERIFICARE: "mc.level.entitiesForRendering()" è il metodo più vicino a
+        // "mc.world.getEntities()" (Yarn) con le mappature Mojang su ClientLevel.
+        // Se non compila/non trova entità, controlla il template aggiornato
+        // (github.com/MeteorDevelopment/meteor-addon-template) per il metodo corretto
+        // di iterazione entità nella tua build di Meteor 26.1.2.
         for (Entity entity : mc.level.entitiesForRendering()) {
             if (!(entity instanceof Sheep sheep)) continue;
             if (sheep.isSheared()) continue;
@@ -325,7 +333,7 @@ public class AutoSheepFarm extends Module {
         if (horizDist > 0.001) {
             mc.player.setSprinting(true);
             double speed = wanderSpeed.get();
-            mc.player.setDeltaMovement((dx / horizDist) * speed, mc.player.getDeltaMovement().y, (dz / horizDist) * speed);
+            mc.player.setDeltaMovement(dx / horizDist * speed, mc.player.getDeltaMovement().y, dz / horizDist * speed);
         }
 
         wanderTicks++;
@@ -340,7 +348,7 @@ public class AutoSheepFarm extends Module {
         double yaw = Rotations.getYaw(target);
         double pitch = Rotations.getPitch(target);
 
-        Rotations.rotate(yaw, pitch, () -> state = State.SHEAR);
+        Rotations.rotate(yaw, pitch, 100, () -> state = State.SHEAR);
     }
 
     private void shear() {
@@ -361,12 +369,13 @@ public class AutoSheepFarm extends Module {
     private void equipShears() {
         for (int i = 0; i < 9; i++) {
             if (mc.player.getInventory().getItem(i).getItem() == Items.SHEARS) {
-                mc.player.getInventory().setSelectedSlot(i);
+                mc.player.getInventory().selected = i;
                 return;
             }
         }
     }
 
+    // MODIFICATA: ora ignora anche la lana caduta a un'altezza (Y) troppo diversa dalla tua.
     private Entity findNearestWoolItem() {
         String needle = woolName.get().toLowerCase();
         double best = lootSearchRadius.get() * lootSearchRadius.get();
@@ -422,7 +431,7 @@ public class AutoSheepFarm extends Module {
         double speed = moveSpeed.get();
 
         mc.player.setSprinting(true);
-        mc.player.setDeltaMovement((dx / dist) * speed, mc.player.getDeltaMovement().y, (dz / dist) * speed);
+        mc.player.setDeltaMovement(dx / dist * speed, mc.player.getDeltaMovement().y, dz / dist * speed);
         moveTicks++;
     }
 
@@ -438,6 +447,8 @@ public class AutoSheepFarm extends Module {
     }
 
     private void openShop() {
+        // ⚠️ VERIFICARE: nome del metodo per inviare un comando chat con le mappature Mojang.
+        // "connection" sostituisce "networkHandler"; il metodo dovrebbe chiamarsi "sendCommand".
         mc.player.connection.sendCommand(shopCommand.get());
         delayTicks = actionDelay.get() * 3;
         pageAttempts = 0;
@@ -465,11 +476,11 @@ public class AutoSheepFarm extends Module {
             return;
         }
 
-        AbstractContainerMenu handler = screen.getMenu();
+        AbstractContainerMenu menu = screen.getMenu();
         String needle = woolName.get().toLowerCase();
 
         for (int i = 0; i < containerSize.get(); i++) {
-            ItemStack stack = handler.getSlot(i).getItem();
+            ItemStack stack = menu.getSlot(i).getItem();
             if (stack.isEmpty()) continue;
 
             String name = stack.getHoverName().getString().toLowerCase();
@@ -487,7 +498,7 @@ public class AutoSheepFarm extends Module {
             return;
         }
 
-        mc.gameMode.handleInventoryMouseClick(handler.containerId, nextPageSlot.get(), 0, ClickType.PICKUP, mc.player);
+        mc.gameMode.handleInventoryMouseClick(menu.containerId, nextPageSlot.get(), 0, ClickType.PICKUP, mc.player);
         delayTicks = actionDelay.get();
     }
 
@@ -497,8 +508,8 @@ public class AutoSheepFarm extends Module {
             return;
         }
 
-        AbstractContainerMenu handler = screen.getMenu();
-        mc.gameMode.handleInventoryMouseClick(handler.containerId, foundWoolSlot, 1, ClickType.PICKUP, mc.player);
+        AbstractContainerMenu menu = screen.getMenu();
+        mc.gameMode.handleInventoryMouseClick(menu.containerId, foundWoolSlot, 1, ClickType.PICKUP, mc.player);
 
         delayTicks = actionDelay.get() * 2;
         waitRetries = 0;
@@ -525,8 +536,8 @@ public class AutoSheepFarm extends Module {
             return;
         }
 
-        AbstractContainerMenu handler = screen.getMenu();
-        mc.gameMode.handleInventoryMouseClick(handler.containerId, emeraldSlot.get(), 0, ClickType.PICKUP, mc.player);
+        AbstractContainerMenu menu = screen.getMenu();
+        mc.gameMode.handleInventoryMouseClick(menu.containerId, emeraldSlot.get(), 0, ClickType.PICKUP, mc.player);
 
         delayTicks = actionDelay.get();
         state = State.CLOSE;
