@@ -10,9 +10,13 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.animal.Sheep;
+import net.minecraft.world.entity.animal.sheep.Sheep;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+// ⚠️ CLASSE NON TROVATA IN COMPILAZIONE: nella tua build 26.1.2 "net.minecraft.world.inventory.ClickType"
+// non risulta più qui. Cancella questa riga, poi nel punto dove usi "ClickType.PICKUP" più sotto
+// usa l'auto-import del tuo IDE (Alt+Invio in IntelliJ) per farti trovare il pacchetto corretto:
+// l'IDE ha già i sorgenti mappati reali della tua versione, io da remoto non riesco a confermarlo.
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -369,7 +373,8 @@ public class AutoSheepFarm extends Module {
     private void equipShears() {
         for (int i = 0; i < 9; i++) {
             if (mc.player.getInventory().getItem(i).getItem() == Items.SHEARS) {
-                mc.player.getInventory().selected = i;
+                // "selected" è privato dalla 1.21.5: si usa il setter pubblico.
+                mc.player.getInventory().setSelectedSlot(i);
                 return;
             }
         }
